@@ -1,8 +1,10 @@
-numpy
+fastapi
+uvicorn
 pandas
-networkx
-streamlit
-matplotlib
-pyvis
+numpy
 scikit-learn
-tqdm
+networkx
+joblib
+python-multipart
+pydantic
+requests
