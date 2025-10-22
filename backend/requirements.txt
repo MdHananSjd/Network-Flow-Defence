@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+websockets
+decouple
+networkx
+scikit-learn
+joblib
