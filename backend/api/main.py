@@ -20,4 +20,7 @@ app.add_middleware(
 #health check
 @app.get("/ping")
 async def ping():
-    return {"status":"ok", "message":"pong"}
+    return {
+        "status":"ok", 
+        "message":"pong"
+    }
