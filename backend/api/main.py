@@ -1,32 +1,27 @@
-#main entry point for the FastAPI application
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from decouple import config #reading variables from .env
+from decouple import config
+from backend.api.routes import game # Imports the game router
 
-# --- ADD THIS IMPORT ---
-from backend.api.routes import game 
+app = FastAPI(title="Network Flow Defense API")
 
-app = FastAPI(title="Network Defence API")
-
-#Dynamic CORS Configuration
-FRONTEND_ORIGIN = config('FRONTEND_URL', default = 'http://localhost:5173')
-ORIGINS = FRONTEND_ORIGIN.split(',') #making it a list for fastpai
+# Dynamic CORS Configuration
+FRONTEND_ORIGIN = config('FRONTEND_URL', default='http://localhost:5173')
+ORIGINS = FRONTEND_ORIGIN.split(',')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = ORIGINS,
-    allow_credentials = True,
-    allow_methods = ['*'],
-    allow_headers = ['*']
+    allow_origins=ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- ADD THIS LINE TO INCLUDE YOUR ROUTER ---
-app.include_router(game.router)
+# Include Game Router
+app.include_router(game.router, prefix="/api") 
 
-#health check
+# Health Check
 @app.get("/ping")
 async def ping():
-    return {
-        "status":"ok", 
-        "message":"pong"
-    }
+    return {"status": "ok", "message": "pong"}
+

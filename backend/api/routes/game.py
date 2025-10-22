@@ -1,146 +1,115 @@
-#Heres where all the game APIs will live
-
-# backend/api/routes/game.py
-
-import asyncio
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from shared.schemas.graph_schema import FullGraph
-from backend.core.graph.generator import generate_new_game_graph
-
-# --- Import your new logic files ---
-from backend.core.infection.simulator import bfs_infection_simulator
-from backend.core.scoring.scorer import (
-    get_ai_prediction, 
-    run_full_simulation, 
-    _prepare_simulation_data
-)
-
-# Global state that you (gohul) will read and modify
-current_fastapi_game_state: FullGraph = None 
+from shared.schemas.graph_schema import FullGraph 
+from backend.core.graph.generator import generate_new_game_graph # Hanan
+from backend.core.scoring.scorer import calculate_min_cut_value # Hanan
+from backend.core.infection.simulator import run_bfs_simulation # Gohul
+from backend.core.state import current_fastapi_game_state # SAFE IMPORT
 
 router = APIRouter(tags=["Game"])
 
-# --- hanan's ENDPOINT (Leave this unchanged) ---
-@router.get("/api/graph/new", response_model=FullGraph)
+# --- PRIMARY ENDPOINT (Hanan) ---
+@router.get("/graph/new", response_model=FullGraph)
 async def get_new_game():
-    """Generates a new graph and returns the initial game state."""
+    """Generates a new graph, stores state, and returns the initial game."""
     global current_fastapi_game_state
     
     new_graph = generate_new_game_graph()
     current_fastapi_game_state = new_graph # Store the mutable state
     return new_graph
 
-# --- gohul's ENDPOINTS (Replace placeholders with this) -----  
-
-@router.post("/api/defense/{node_id}", response_model=FullGraph)
+# --- STATE MUTATION (Gohul) ---
+@router.post("/defense/{node_id}", response_model=FullGraph)
 async def place_firewall_token(node_id: str):
-    """
-    (Gohul's logic)
-    Places a firewall on a node if tokens are available.
-    """
+    """Handles user defense actions, marking the node as a firewall, consuming a token."""
     global current_fastapi_game_state
-    if not current_fastapi_game_state:
-        raise HTTPException(status_code=404, detail="No active game. Create a new graph first.")
-
-    # Safely get and convert tokens
-    tokens_raw = current_fastapi_game_state.metadata.get("tokens_left", 0)
-    try:
-        tokens = int(tokens_raw)
-    except ValueError:
-        tokens = 0
     
-    if tokens <= 0:
-        raise HTTPException(status_code=400, detail="No defense tokens left.")
+    if not current_fastapi_game_state:
+        raise HTTPException(status_code=400, detail="No active game found.")
+        
+    tokens_left = current_fastapi_game_state.metadata.get('tokens_left', 0)
+    if tokens_left <= 0:
+        raise HTTPException(status_code=403, detail="No defense tokens left.")
 
-    node_found = False
+    found_node = False
     for node in current_fastapi_game_state.nodes:
         if node.id == node_id:
-            if node.is_source or node.is_target:
-                raise HTTPException(status_code=400, detail="Cannot place firewall on source or target.")
-            if not node.is_firewall:
-                node.is_firewall = True
-                current_fastapi_game_state.metadata["tokens_left"] = str(tokens - 1) # Store as string
-            node_found = True
+            if node.is_firewall:
+                raise HTTPException(status_code=400, detail="Node already defended.")
+                
+            # Mutate State
+            node.is_firewall = True
+            current_fastapi_game_state.metadata['tokens_left'] = tokens_left - 1
+            found_node = True
             break
             
-    if not node_found:
-        raise HTTPException(status_code=404, detail="Node not found.")
-        
-    return current_fastapi_game_state
+    if not found_node:
+        raise HTTPException(status_code=404, detail=f"Node ID {node_id} not found.")
+    
+    return current_fastapi_game_state 
 
+# --- WEB SOCKET SIMULATION (Gohul) ---
 @router.websocket("/ws/simulate")
 async def websocket_simulation(websocket: WebSocket):
-    """
-    (Gohul's logic)
-    Handles real-time simulation stream.
-    """
-    global current_fastapi_game_state
+    """Handles the real-time, step-by-step animation of the infection spread."""
     await websocket.accept()
     
-    if not current_fastapi_game_state:
-        await websocket.send_json({"status": "error", "message": "No active game."})
+    if current_fastapi_game_state is None:
+        await websocket.send_json({"status": "ERROR", "message": "Game not initialized."})
         await websocket.close()
         return
 
-    start_node = str(current_fastapi_game_state.metadata["source_id"])
+    # Extract necessary data for simulation
+    firewall_ids = {n.id for n in current_fastapi_game_state.nodes if n.is_firewall}
     
-    # Use the helper function to prepare data for the simulation
-    adj_list, firewalls = _prepare_simulation_data(current_fastapi_game_state)
-    current_fastapi_game_state.metadata["status"] = "Simulation_Phase"
-
     try:
-        gen = bfs_infection_simulator(adj_list, start_node, firewalls)
-        for step, infected_wave in enumerate(gen):
-            await websocket.send_json({
-                "step": step,
-                "newly_infected": list(infected_wave)
-            })
-            await asyncio.sleep(0.75) # Pause for animation
+        await websocket.receive_text() # Wait for the client to send the START signal
         
-        await websocket.send_json({"status": "complete"})
-
+        target_hit = False
+        
+        # Consume the simulation generator step-by-step
+        for step_data in run_bfs_simulation(firewall_ids):
+            await websocket.send_json(step_data)
+            if step_data.get("is_target_hit"):
+                target_hit = True
+                break
+        
+        # Send final result
+        result = "FAILURE" if target_hit else "SUCCESS"
+        await websocket.send_json({"status": "Simulation_Complete", "result": result})
+            
     except WebSocketDisconnect:
-        print("Client disconnected.")
+        print("Client disconnected during simulation.")
     except Exception as e:
-        print(f"Simulation error: {e}")
-        await websocket.send_json({"status": "error", "message": str(e)})
+        print(f"Simulation Error: {e}")
     finally:
-        current_fastapi_game_state.metadata["status"] = "Scoring_Phase"
-        print("WebSocket closed.")
+        await websocket.close()
 
-@router.get("/api/score/final")
+# --- FINAL SCORE ENDPOINT (Gohul, calling Hanan's logic) ---
+@router.get("/score/final")
 async def get_final_score():
-    """
-    (Gohul's logic)
-    Handles final scoring integration.
-    """
-    global current_fastapi_game_state
-    if not current_fastapi_game_state or current_fastapi_game_state.metadata["status"] != "Scoring_Phase":
-        raise HTTPException(status_code=400, detail="Game not in scoring phase.")
+    """Calculates final score metrics based on user defense vs. Min-Cut."""
+    
+    if not current_fastapi_game_state:
+        raise HTTPException(status_code=400, detail="Game not initialized.")
+        
+    source_id = current_fastapi_game_state.metadata['source_id']
+    target_id = current_fastapi_game_state.metadata['target_id']
 
-    start_node = str(current_fastapi_game_state.metadata["source_id"])
-    total_nodes = len(current_fastapi_game_state.nodes)
-
-    # 1. Calculate User's Score
-    user_infected_count = run_full_simulation(current_fastapi_game_state, start_node, custom_firewalls=None)
-    user_nodes_saved = total_nodes - user_infected_count
-
-    # 2. Calculate AI's Score
-    ai_firewalls = get_ai_prediction(current_fastapi_game_state)
-    ai_infected_count = run_full_simulation(current_fastapi_game_state, start_node, custom_firewalls=ai_firewalls)
-    ai_nodes_saved = total_nodes - ai_infected_count
-
-    return {
-        "results": {
-            "user": {
-                "nodes_saved": user_nodes_saved,
-                "nodes_infected": user_infected_count
-            },
-            "ai": {
-                "firewalls_placed": list(ai_firewalls),
-                "nodes_saved": ai_nodes_saved,
-                "nodes_infected": ai_infected_count
-            }
-        },
-        "total_nodes_in_graph": total_nodes
+    # Get Min-Cut Benchmark (Hanan's logic)
+    min_cut_data = calculate_min_cut_value(source_id, target_id)
+    min_cut_value = min_cut_data.get('min_cut_value', 0)
+    
+    # Get User Metrics
+    tokens_left = current_fastapi_game_state.metadata.get('tokens_left', 3)
+    tokens_used = 3 - tokens_left
+    
+    # Final Payload
+    final_payload = {
+        "user_tokens_used": tokens_used,
+        "optimal_tokens_required": min_cut_value,
+        "efficiency_score": 100 * (min_cut_value / max(1, tokens_used)), 
+        "status": "Scoring Complete",
+        "ml_alignment_score": "Pending ML Model Integration" 
     }
+    
+    return final_payload
