@@ -3,6 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from decouple import config #reading variables from .env
 
+# --- ADD THIS IMPORT ---
+from backend.api.routes import game 
+
 app = FastAPI(title="Network Defence API")
 
 #Dynamic CORS Configuration
@@ -16,6 +19,9 @@ app.add_middleware(
     allow_methods = ['*'],
     allow_headers = ['*']
 )
+
+# --- ADD THIS LINE TO INCLUDE YOUR ROUTER ---
+app.include_router(game.router)
 
 #health check
 @app.get("/ping")

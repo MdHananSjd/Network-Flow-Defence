@@ -20,4 +20,4 @@ class EdgeData(BaseModel):
 class FullGraph(BaseModel):
     nodes: List[NodeData]
     edges: List[EdgeData]
-    metadata: Dict[str, Union[int, str]] = Field(..., "Game State (tokens, S/T IDs).")
+    metadata: Dict[str, Union[int, str]] = Field(..., description="Game State (tokens, S/T IDs).")
