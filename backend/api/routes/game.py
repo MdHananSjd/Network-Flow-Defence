@@ -17,7 +17,7 @@ async def get_new_game():
     global current_fastapi_game_state
     
     new_graph = generate_new_game_graph()
-    current_fastapi_game_state = new_graph # Store the mutable state
+    current_fastapi_game_state = new_graph
     return new_graph
 
 # --- STATE MUTATION (Gohul) ---
@@ -54,19 +54,26 @@ async def place_firewall_token(node_id: str):
 @router.websocket("/ws/simulate")
 async def websocket_simulation(websocket: WebSocket):
     """Handles the real-time, step-by-step animation of the infection spread."""
-    await websocket.accept()
     
+    # 1. FIX: ACCEPT CONNECTION FIRST (Mandatory)
+    await websocket.accept() 
+
     if current_fastapi_game_state is None:
-        await websocket.send_json({"status": "ERROR", "message": "Game not initialized."})
+        # 2. If state is missing, send error, then close cleanly.
+        await websocket.send_json({"status": "ERROR", "message": "Game not initialized. Call /api/graph/new first."})
         await websocket.close()
         return
 
     # Extract necessary data for simulation
-    firewall_ids = {n.id for n in current_fastapi_game_state.nodes if n.is_firewall}
-    
     try:
-        await websocket.receive_text() # Wait for the client to send the START signal
-        
+        firewall_ids = {n.id for n in current_fastapi_game_state.nodes if n.is_firewall}
+        await websocket.receive_text() # Wait for the START signal
+    except Exception:
+        # Handles case where client closes connection right after accepting
+        return 
+
+    # --- Simulation Logic Starts Here ---
+    try:
         target_hit = False
         
         # Consume the simulation generator step-by-step
@@ -82,9 +89,8 @@ async def websocket_simulation(websocket: WebSocket):
             
     except WebSocketDisconnect:
         print("Client disconnected during simulation.")
-    except Exception as e:
-        print(f"Simulation Error: {e}")
     finally:
+        # Ensures connection is closed cleanly after simulation completes
         await websocket.close()
 
 # --- FINAL SCORE ENDPOINT (Gohul, calling Hanan's logic) ---
