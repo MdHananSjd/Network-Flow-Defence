@@ -1,0 +1,35 @@
+{
+  "feature_names": [
+    "degree_centrality",
+    "betweenness_centrality",
+    "closeness_centrality",
+    "dist_from_source",
+    "dist_to_target",
+    "on_shortest_path",
+    "raw_degree",
+    "clustering_coefficient"
+  ],
+  "feature_order": [
+    "degree_centrality",
+    "betweenness_centrality",
+    "closeness_centrality",
+    "dist_from_source",
+    "dist_to_target",
+    "on_shortest_path",
+    "raw_degree",
+    "clustering_coefficient"
+  ],
+  "n_features": 8,
+  "model_info": {
+    "rf_accuracy": 0.8924818108326596,
+    "gb_accuracy": 0.9296685529506872,
+    "hybrid_accuracy": 0.9304769603880356,
+    "hybrid_f1": 0.7440476190476191,
+    "training_samples": 4945,
+    "test_samples": 1237
+  },
+  "hybrid_weights": {
+    "rf_weight": 0.4,
+    "gb_weight": 0.6
+  }
+}
