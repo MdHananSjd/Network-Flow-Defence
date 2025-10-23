@@ -4,6 +4,9 @@ from backend.core.graph.generator import generate_new_game_graph # Hanan
 from backend.core.scoring.scorer import calculate_min_cut_value # Hanan
 from backend.core.infection.simulator import run_bfs_simulation # Gohul
 from backend.core.state import current_fastapi_game_state # SAFE IMPORT
+from backend.ml.ml_backend import predict_critical_nodes
+from backend.core.state import current_networkx_graph
+
 
 router = APIRouter(tags=["Game"])
 
@@ -109,7 +112,30 @@ async def get_final_score():
         "optimal_tokens_required": min_cut_value,
         "efficiency_score": 100 * (min_cut_value / max(1, tokens_used)), 
         "status": "Scoring Complete",
-        "ml_alignment_score": "Pending ML Model Integration" 
+        "ml_critical_nodes": ml_critical_ids,           # NEW - ML suggestions
+        "ml_alignment_score": ml_alignment_score        # NEW - How well user matched ML
     }
+    # --- ML INTEGRATION START ---
+try:
+    # Get the graph that's already stored in NetworkX format
+    G = current_networkx_graph
+    source = current_fastapi_game_state.metadata['source_id']
+    target = current_fastapi_game_state.metadata['target_id']
     
+    # Get ML predictions for top 5 most critical nodes
+    ml_predictions = predict_critical_nodes(G, source, target, top_k=5)
+    ml_critical_ids = [node for node, score in ml_predictions]
+    
+    # Calculate how well user's choices matched ML suggestions
+    user_firewall_ids = {n.id for n in current_fastapi_game_state.nodes if n.is_firewall}
+    matches = len(set(ml_critical_ids) & user_firewall_ids)
+    ml_alignment_score = round(100 * matches / max(1, len(ml_critical_ids)), 2)
+    
+except Exception as e:
+    # If something goes wrong, still return a response
+    ml_critical_ids = []
+    ml_alignment_score = 0
+    print(f"ML prediction error: {e}")
+# --- ML INTEGRATION END ---
+
     return final_payload
