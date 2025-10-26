@@ -2,7 +2,7 @@
 #we'll have the pydantic model for data here 
 
 from pydantic import BaseModel, Field
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 
 class NodeData(BaseModel):
     id: str = Field(..., description="Unique ID")
@@ -12,6 +12,9 @@ class NodeData(BaseModel):
     is_source: bool = False
     is_target: bool = False
     is_firewall: bool = False
+    # Optional precomputed layout positions from NetworkX for decluttered visualization
+    pos_x: Optional[float] = None
+    pos_y: Optional[float] = None
 
 class EdgeData(BaseModel):
     source: str

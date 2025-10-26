@@ -6,7 +6,8 @@ const GameControls = ({
     onStartSimulation, 
     onNewGame, 
     finalScore,
-    loading 
+    loading,
+    gameInitialized
 }) => {
     const isDefensePhase = simulationStatus === 'IDLE' || simulationStatus === 'READY';
     const canStartSimulation = isDefensePhase && tokensLeft === 0;
@@ -15,47 +16,71 @@ const GameControls = ({
 
     return (
         <div style={{ 
-            width: '100%', 
-            border: '1px solid #ddd', 
-            borderRadius: '8px', 
-            padding: '20px',
-            backgroundColor: '#f9f9f9'
+            width: '100%',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
         }}>
-            <h2 style={{ marginTop: 0, color: '#333' }}>Game Controls</h2>
-            
-            {/* Game Status */}
-            <div style={{ marginBottom: '20px' }}>
-                <h3>Status: <span style={{ 
-                    color: isDefensePhase ? '#28a745' : 
-                           isSimulationRunning ? '#ffc107' : 
-                           isSimulationComplete ? '#17a2b8' : '#6c757d'
+            {/* Game Phase Indicator */}
+            <div style={{ 
+                marginBottom: '20px',
+                padding: '15px',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+                <h3 style={{ 
+                    margin: '0 0 10px 0',
+                    color: 'white',
+                    fontSize: '16px',
+                    fontWeight: '500'
                 }}>
-                    {simulationStatus}
-                </span></h3>
-                <p><strong>Tokens Left:</strong> {tokensLeft}</p>
+                    Current Phase: <span style={{ 
+                        color: isDefensePhase ? '#4ade80' : 
+                               isSimulationRunning ? '#fbbf24' : 
+                               isSimulationComplete ? '#60a5fa' : '#9ca3af',
+                        fontWeight: '600'
+                    }}>
+                        {isDefensePhase ? 'DEFENSE' : 
+                         isSimulationRunning ? 'SIMULATION' : 
+                         isSimulationComplete ? 'COMPLETE' : 'IDLE'}
+                    </span>
+                </h3>
+                <p style={{ 
+                    margin: '0',
+                    fontSize: '14px',
+                    color: 'rgba(255,255,255,0.8)'
+                }}>
+                    <strong>🛡️ Tokens Left:</strong> 
+                    <span style={{ 
+                        color: tokensLeft > 0 ? '#4ade80' : '#f87171',
+                        fontWeight: '600',
+                        fontSize: '16px'
+                    }}> {tokensLeft}</span>
+                </p>
             </div>
 
-            {/* Instructions */}
+            {/* Phase Instructions */}
             <div style={{ marginBottom: '20px' }}>
                 {isDefensePhase && tokensLeft > 0 && (
                     <div style={{ 
-                        padding: '10px', 
-                        backgroundColor: '#d4edda', 
-                        border: '1px solid #c3e6cb',
-                        borderRadius: '4px',
-                        color: '#155724'
+                        padding: '12px', 
+                        backgroundColor: 'rgba(74, 222, 128, 0.1)', 
+                        border: '1px solid rgba(74, 222, 128, 0.3)',
+                        borderRadius: '6px',
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: '14px'
                     }}>
-                        <strong>Action:</strong> Click nodes on the graph to place firewall tokens.
+                        <strong>Strategy Phase:</strong> Click nodes on the graph to place firewall tokens.
                     </div>
                 )}
                 
                 {isDefensePhase && tokensLeft === 0 && (
                     <div style={{ 
-                        padding: '10px', 
-                        backgroundColor: '#fff3cd', 
-                        border: '1px solid #ffeaa7',
-                        borderRadius: '4px',
-                        color: '#856404'
+                        padding: '12px', 
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)', 
+                        border: '1px solid rgba(251, 191, 36, 0.3)',
+                        borderRadius: '6px',
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: '14px'
                     }}>
                         <strong>Ready:</strong> All tokens placed. Start simulation to see the infection spread.
                     </div>
@@ -63,90 +88,150 @@ const GameControls = ({
 
                 {isSimulationRunning && (
                     <div style={{ 
-                        padding: '10px', 
-                        backgroundColor: '#d1ecf1', 
-                        border: '1px solid #bee5eb',
-                        borderRadius: '4px',
-                        color: '#0c5460'
+                        padding: '12px', 
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)', 
+                        border: '1px solid rgba(96, 165, 250, 0.3)',
+                        borderRadius: '6px',
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: '14px'
                     }}>
-                        <strong>Simulation Running:</strong> Watch the infection spread in real-time.
+                        <strong>Simulation Phase:</strong> Watch the infection spread in real-time.
                     </div>
                 )}
             </div>
 
             {/* Control Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                {/* Start New Game Button - Always Visible */}
                 <button 
                     onClick={onNewGame} 
                     disabled={loading}
                     style={{
-                        padding: '12px 24px',
-                        backgroundColor: '#007bff',
+                        padding: '12px 20px',
+                        backgroundColor: 'rgba(255,255,255,0.1)',
                         color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '6px',
                         cursor: loading ? 'not-allowed' : 'pointer',
                         opacity: loading ? 0.6 : 1,
-                        fontSize: '16px',
-                        fontWeight: 'bold'
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        transition: 'all 0.2s ease',
+                        width: '100%'
+                    }}
+                    onMouseOver={(e) => {
+                        if (!loading) {
+                            e.target.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                        }
+                    }}
+                    onMouseOut={(e) => {
+                        if (!loading) {
+                            e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        }
                     }}
                 >
-                    {loading ? 'Loading...' : 'Start New Game'}
+                    {loading ? '🔄 Loading...' : '🎮 Start New Game'}
                 </button>
 
+                {/* Start Simulation Button - Only visible when tokens = 0 and status = READY/IDLE */}
                 {canStartSimulation && (
                     <button 
                         onClick={onStartSimulation}
                         style={{
-                            padding: '12px 24px',
-                            backgroundColor: '#dc3545',
+                            padding: '12px 20px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)',
                             color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: '6px',
                             cursor: 'pointer',
-                            fontSize: '16px',
-                            fontWeight: 'bold'
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            transition: 'all 0.2s ease',
+                            width: '100%'
+                        }}
+                        onMouseOver={(e) => {
+                            e.target.style.backgroundColor = 'rgba(239, 68, 68, 1)';
+                        }}
+                        onMouseOut={(e) => {
+                            e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.8)';
                         }}
                     >
-                        Start BFS Simulation
+                        🚀 Start Simulation
                     </button>
                 )}
             </div>
 
-            {/* Final Score Display */}
+            {/* Final Score Display - Only visible when simulation is COMPLETE */}
             {isSimulationComplete && finalScore && (
                 <div style={{ 
                     marginTop: '20px', 
-                    padding: '15px', 
-                    backgroundColor: '#d4edda', 
-                    border: '2px solid #28a745',
+                    padding: '16px', 
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)', 
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
                     borderRadius: '8px',
-                    color: '#155724'
+                    color: 'rgba(255,255,255,0.9)'
                 }}>
-                    <h3 style={{ marginTop: 0, color: '#155724' }}>🎉 Simulation Complete!</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        <div>
-                            <strong>Your Tokens Used:</strong><br />
-                            {finalScore.user_tokens_used}
+                    <h3 style={{ 
+                        marginTop: 0, 
+                        color: 'white',
+                        fontSize: '16px',
+                        textAlign: 'center',
+                        marginBottom: '12px',
+                        fontWeight: '600'
+                    }}>🎉 Simulation Complete!</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '12px' }}>
+                            <strong>Your Tokens:</strong><br />
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>{finalScore.user_tokens_used}</span>
                         </div>
-                        <div>
+                        <div style={{ fontSize: '12px' }}>
                             <strong>Optimal (Min-Cut):</strong><br />
-                            {finalScore.optimal_tokens_required}
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>{finalScore.optimal_tokens_required}</span>
                         </div>
                     </div>
                     <div style={{ 
-                        marginTop: '10px', 
-                        padding: '10px', 
-                        backgroundColor: '#fff', 
+                        padding: '8px', 
+                        backgroundColor: 'rgba(255,255,255,0.1)', 
                         borderRadius: '4px',
                         textAlign: 'center'
                     }}>
-                        <strong style={{ fontSize: '18px' }}>
+                        <strong style={{ fontSize: '14px' }}>
                             Efficiency Score: {finalScore.efficiency_score.toFixed(2)}%
                         </strong>
                     </div>
+                    
+                    {/* AI Alignment Score */}
+                    {finalScore.ml_alignment_score !== undefined && finalScore.ml_alignment_score !== "Pending ML Model Integration" && (
+                        <div style={{ 
+                            marginTop: '8px', 
+                            padding: '8px', 
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '4px',
+                            textAlign: 'center'
+                        }}>
+                            <strong style={{ fontSize: '12px', color: 'rgba(255,255,255,0.9)' }}>
+                                🤖 AI Alignment: {finalScore.ml_alignment_score}%
+                            </strong>
+                        </div>
+                    )}
                 </div>
             )}
+            
+            {/* Feature Data Section - Empty placeholder */}
+            <div style={{ 
+                marginTop: '20px', 
+                padding: '16px', 
+                backgroundColor: 'rgba(255,255,255,0.05)', 
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: '12px',
+                textAlign: 'center'
+            }}>
+                <strong>Feature Data</strong><br />
+                <span style={{ fontSize: '10px' }}>Analytical metrics will appear here</span>
+            </div>
         </div>
     );
 };

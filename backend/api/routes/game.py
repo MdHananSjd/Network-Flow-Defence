@@ -3,9 +3,8 @@ from shared.schemas.graph_schema import FullGraph
 from backend.core.graph.generator import generate_new_game_graph # Hanan
 from backend.core.scoring.scorer import calculate_min_cut_value # Hanan
 from backend.core.infection.simulator import run_bfs_simulation # Gohul
-from backend.core.state import current_fastapi_game_state # SAFE IMPORT
-from backend.ml.ml_backend import predict_critical_nodes
-from backend.core.state import current_networkx_graph
+from backend.core.state import current_fastapi_game_state, current_networkx_graph # SAFE IMPORT
+from backend.ml.ml_backend import predict_critical_nodes # ML Integration
 
 
 router = APIRouter(tags=["Game"])
@@ -14,10 +13,11 @@ router = APIRouter(tags=["Game"])
 @router.get("/graph/new", response_model=FullGraph)
 async def get_new_game():
     """Generates a new graph, stores state, and returns the initial game."""
-    global current_fastapi_game_state
+    global current_fastapi_game_state, current_networkx_graph
     
-    new_graph = generate_new_game_graph()
+    new_graph, nx_graph = generate_new_game_graph()
     current_fastapi_game_state = new_graph
+    current_networkx_graph = nx_graph
     return new_graph
 
 # --- STATE MUTATION (Gohul) ---
@@ -112,6 +112,29 @@ async def get_final_score():
     tokens_left = current_fastapi_game_state.metadata.get('tokens_left', 3)
     tokens_used = 3 - tokens_left
     
+    # --- ML INTEGRATION START ---
+    try:
+        # Get the graph that's already stored in NetworkX format
+        G = current_networkx_graph
+        source = current_fastapi_game_state.metadata['source_id']
+        target = current_fastapi_game_state.metadata['target_id']
+        
+        # Get ML predictions for top 5 most critical nodes
+        ml_predictions = predict_critical_nodes(G, source, target, top_k=5)
+        ml_critical_ids = [node for node, score in ml_predictions]
+        
+        # Calculate how well user's choices matched ML suggestions
+        user_firewall_ids = {n.id for n in current_fastapi_game_state.nodes if n.is_firewall}
+        matches = len(set(ml_critical_ids) & user_firewall_ids)
+        ml_alignment_score = round(100 * matches / max(1, len(ml_critical_ids)), 2)
+        
+    except Exception as e:
+        # If something goes wrong, still return a response
+        ml_critical_ids = []
+        ml_alignment_score = 0
+        print(f"ML prediction error: {e}")
+    # --- ML INTEGRATION END ---
+
     # Final Payload
     final_payload = {
         "user_tokens_used": tokens_used,
@@ -121,27 +144,36 @@ async def get_final_score():
         "ml_critical_nodes": ml_critical_ids,           # NEW - ML suggestions
         "ml_alignment_score": ml_alignment_score        # NEW - How well user matched ML
     }
-    # --- ML INTEGRATION START ---
-try:
-    # Get the graph that's already stored in NetworkX format
-    G = current_networkx_graph
-    source = current_fastapi_game_state.metadata['source_id']
-    target = current_fastapi_game_state.metadata['target_id']
-    
-    # Get ML predictions for top 5 most critical nodes
-    ml_predictions = predict_critical_nodes(G, source, target, top_k=5)
-    ml_critical_ids = [node for node, score in ml_predictions]
-    
-    # Calculate how well user's choices matched ML suggestions
-    user_firewall_ids = {n.id for n in current_fastapi_game_state.nodes if n.is_firewall}
-    matches = len(set(ml_critical_ids) & user_firewall_ids)
-    ml_alignment_score = round(100 * matches / max(1, len(ml_critical_ids)), 2)
-    
-except Exception as e:
-    # If something goes wrong, still return a response
-    ml_critical_ids = []
-    ml_alignment_score = 0
-    print(f"ML prediction error: {e}")
-# --- ML INTEGRATION END ---
 
     return final_payload
+
+# --- ML PREDICTIONS ENDPOINT ---
+@router.get("/ml/predictions")
+async def get_ml_predictions():
+    """Get ML predictions for critical nodes during the game."""
+    
+    if not current_fastapi_game_state:
+        raise HTTPException(status_code=400, detail="Game not initialized.")
+        
+    try:
+        G = current_networkx_graph
+        source = current_fastapi_game_state.metadata['source_id']
+        target = current_fastapi_game_state.metadata['target_id']
+        
+        # Get ML predictions for top 5 most critical nodes
+        ml_predictions = predict_critical_nodes(G, source, target, top_k=5)
+        
+        return {
+            "status": "ML Predictions Ready",
+            "critical_nodes": [
+                {
+                    "node_id": node_id,
+                    "criticality_score": round(score, 4),
+                    "is_firewall": any(n.id == node_id and n.is_firewall for n in current_fastapi_game_state.nodes)
+                }
+                for node_id, score in ml_predictions
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ML prediction failed: {str(e)}")

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-// Use a relative path. The browser will automatically use the correct protocol (ws/wss) 
-// and port (5173), relying on the Vite proxy to route /api/ws to the backend's 8000 port.
-const SOCKET_URL = '/api/ws/simulate';
+// Primary (via Vite proxy) and fallback (direct to backend) WS URLs
+const PRIMARY_WS_PATH = '/api/ws/simulate';
+const FALLBACK_WS_ABSOLUTE = 'ws://localhost:8000/api/ws/simulate';
 
 export const useSimulation = () => {
     const [simulationData, setSimulationData] = useState([]);
@@ -32,20 +32,26 @@ export const useSimulation = () => {
     }, []);
 
     useEffect(() => {
-        // Create WebSocket connection
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}${SOCKET_URL}`); 
-        
-        setSocket(ws);
-        socketRef.current = ws;
+        let closedByUs = false;
 
-        ws.onopen = () => {
-            console.log('WebSocket connected');
-            setSimulationStatus('READY');
-            setError(null);
-        };
-        
-        ws.onmessage = (event) => {
+        const connect = (useFallback = false) => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = useFallback
+                ? FALLBACK_WS_ABSOLUTE
+                : `${protocol}//${window.location.host}${PRIMARY_WS_PATH}`;
+
+            const ws = new WebSocket(url);
+
+            setSocket(ws);
+            socketRef.current = ws;
+
+            ws.onopen = () => {
+                console.log('WebSocket connected:', url);
+                setSimulationStatus('READY');
+                setError(null);
+            };
+
+            ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
 
@@ -65,22 +71,35 @@ export const useSimulation = () => {
                 console.error('Error parsing WebSocket message:', err);
                 setError('Failed to parse simulation data');
             }
+            };
+
+            ws.onclose = (event) => {
+                console.log('WebSocket closed:', event.code, event.reason);
+                if (!closedByUs) {
+                    // If primary failed, try fallback once
+                    if (!useFallback) {
+                        console.warn('Retrying WebSocket via backend port...');
+                        connect(true);
+                    } else {
+                        setSimulationStatus('DISCONNECTED');
+                        setError('WebSocket connection error');
+                    }
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                // Let onclose handle retry logic
+            };
         };
 
-        ws.onclose = (event) => {
-            console.log('WebSocket closed:', event.code, event.reason);
-            setSimulationStatus('DISCONNECTED');
-        };
+        connect(false);
 
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            setError('WebSocket connection error');
-            setSimulationStatus('ERROR');
-        };
-
-        // Cleanup function runs when the component unmounts
+        // Cleanup on unmount
         return () => {
-            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            closedByUs = true;
+            const ws = socketRef.current;
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
                 ws.close();
             }
         };

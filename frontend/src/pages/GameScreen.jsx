@@ -72,20 +72,105 @@ const GameScreen = () => {
     };
 
     // --- RENDERING ---
-    if (loading) return <div style={{padding: '20px'}}>Loading Initial Network...</div>;
-    if (error) return <div style={{padding: '20px', color: 'red'}}>Error: {error}</div>;
-    if (simulationError) return <div style={{padding: '20px', color: 'red'}}>Simulation Error: {simulationError}</div>;
+    if (loading) return (
+        <div style={{
+            padding: '60px',
+            textAlign: 'center',
+            color: '#2c3e50',
+            fontSize: '24px',
+            backgroundColor: '#f8f9fa',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center'
+        }}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🔄</div>
+            <div>Loading Network Topology...</div>
+            <div style={{ fontSize: '16px', color: '#7f8c8d', marginTop: '10px' }}>
+                Generating secure network infrastructure
+            </div>
+        </div>
+    );
+    
+    if (error) return (
+        <div style={{
+            padding: '60px',
+            textAlign: 'center',
+            color: '#e74c3c',
+            fontSize: '20px',
+            backgroundColor: '#f8f9fa',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center'
+        }}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>⚠️</div>
+            <div>Network Error</div>
+            <div style={{ fontSize: '16px', color: '#7f8c8d', marginTop: '10px' }}>
+                {error}
+            </div>
+        </div>
+    );
+    
+    if (simulationError) return (
+        <div style={{
+            padding: '60px',
+            textAlign: 'center',
+            color: '#e74c3c',
+            fontSize: '20px',
+            backgroundColor: '#f8f9fa',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center'
+        }}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🚨</div>
+            <div>Simulation Error</div>
+            <div style={{ fontSize: '16px', color: '#7f8c8d', marginTop: '10px' }}>
+                {simulationError}
+            </div>
+        </div>
+    );
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#333' }}>
-                Network Defense Challenge
-            </h1>
-
-            <div style={{ display: 'flex', gap: '20px', minHeight: '600px' }}>
-                
-                {/* --- Controls & Status Panel --- */}
-                <div style={{ width: '300px', flexShrink: 0 }}>
+        <div style={{ 
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+        }}>
+            {/* Header */}
+            <div style={{ 
+                textAlign: 'center', 
+                padding: '20px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.1)'
+            }}>
+                <h1 style={{ 
+                    margin: 0,
+                    fontSize: '2.2rem',
+                    fontWeight: '600',
+                    letterSpacing: '-0.02em'
+                }}>
+                    🛡️ Network Flow Defense Challenge
+                </h1>
+            </div>
+            
+            {/* Two-Column Layout */}
+            <div style={{ 
+                display: 'flex', 
+                height: 'calc(100vh - 100px)'
+            }}>
+                {/* Left Column - Controls Panel (30%) */}
+                <div style={{ 
+                    width: '30%',
+                    minWidth: '350px',
+                    padding: '20px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
+                    overflowY: 'auto'
+                }}>
                     <GameControls
                         simulationStatus={simulationStatus}
                         tokensLeft={tokensLeft}
@@ -93,11 +178,15 @@ const GameScreen = () => {
                         onNewGame={handleNewGame}
                         finalScore={finalScore}
                         loading={loading}
+                        gameInitialized={!!graphData}
                     />
                 </div>
-
-                {/* --- Graph View --- */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                
+                {/* Right Column - Graph View (70%) */}
+                <div style={{ 
+                    flex: 1,
+                    padding: '20px'
+                }}>
                     <GraphView 
                         data={graphData} 
                         onNodeClick={handleNodeClick} 

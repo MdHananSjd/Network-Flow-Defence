@@ -14,4 +14,7 @@ export const gameAPI = {
     
     // Gohul/Hanan Scoring Integration: GET /api/score/final
     getFinalScore: () => API.get('/score/final'),
+    
+    // ML Predictions: GET /api/ml/predictions
+    getMLPredictions: () => API.get('/ml/predictions'),
 };

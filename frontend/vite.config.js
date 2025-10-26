@@ -10,8 +10,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000', 
         changeOrigin: true,
-        // The rewrite rule is CORRECT for REST endpoints like /api/graph/new
-        rewrite: (path) => path.replace(/^\/api/, ''), 
+        ws: true, // Allow WebSocket upgrade for any /api/* path
+        // IMPORTANT: Do NOT rewrite; backend expects /api prefix (FastAPI includes router with prefix "/api")
       },
       
       // 2. WebSocket Proxy: Handles the simulation endpoint. 
@@ -20,6 +20,7 @@ export default defineConfig({
       '/api/ws': {
         target: 'ws://localhost:8000', 
         ws: true, // IMPORTANT: Enables WebSocket proxying
+        changeOrigin: true,
       },
     },
   },
